@@ -1,0 +1,202 @@
+%\documentclass[12pt, letterpaper]{article}
+\documentclass[12pt]{article}
+%\usepackage{fontspec}
+
+%\setmainfont{Times New Roman}
+%\usepackage{statcourse}
+\usepackage{algorithmic}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{setspace}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array,multirow}
+\usepackage{url}
+\usepackage{geometry}
+\usepackage{threeparttable}
+\usepackage{subfigure}
+\usepackage{csvsimple}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{tikz}
+%\geometry{letterpaper,left=2.54cm,right=2.54cm,top=.5cm,bottom=2.54cm}
+
+
+
+% Include other packages here, before hyperref.
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\usepackage[breaklinks=true,bookmarks=false]{hyperref}
+\usepackage{cleveref}
+
+
+%\statcoursefinalcopy
+%\linespread{1.0}
+
+
+%opening
+\title{Yelp Review Analysis for Burger Business}
+\author{Jiawei Huang, Yiqun Xiao, Shushu Zhang}
+
+\begin{document}
+
+
+\maketitle
+
+\section{Introduction}
+\label{sec:1}
+Yelp, a platforms for customers to write reviews and ratings of the businesses, published a subset of their data set, containing four JSON files about the reviews and the information of businesses and users. In this report, we intend to provide useful, actionable suggestions to business owners in order to improve their ratings based on the information contained in reviews, and the information of the businesses. Owing to the enormous differences among different categories of businesses, we mainly provides suggestions to "burger businesses" in this report. The rest of the report is organized as follows. We introduce the details of data analysis, including preprocessing and model building od the data, in \cref{sec:2}. We provide overall analytical insights and data-driven action plan based on the aforementioned data analysis in \Cref{sec:ins}. We state the strengths and weaknesses of the model in \Cref{sec:str}, and our contributions in \Cref{sec:con}.
+
+
+\section{Statistical Analysis}
+\label{sec:2}
+In this section, we provide detailed narratives of the process of data analysis. We first clean and extract useful information for the text data in \Cref{subsec:Cleaning}, and then use lasso to reduce the high dimension of the text data in \Cref{subsec:lasso}, and use regression to fit proper model in \Cref{subsec:mod}. 
+\subsection{Data Cleaning}
+\label{subsec:Cleaning}
+In order to extract useful information from the reviews, we need to preprocess the text data. We (1) keep those whose "categories" contains "burger"; (2) merge "review.json" and "business.json" by "business\_id" in order to reflects the information of reviews on the properties of their corresponding businesses. For example, if we find that the word "parking" in the review is of great importance to the ratings, and the business has no parking spot, then we suggest the bussiness owner to provide parking spots; (3) remove all the punctuations; (4) tokenize negative words, such as "no", "not" into the adjacent words to convey the real feelings of the reviewers, such as converting "not clean" to a single word "no\_clean"; (5) remove stop words; (6) lemmatize; (7) count frequency of each words; and (8) remove all the words occurring only once or twice, since they are mostly typos or nonsense. 
+\subsection{TF-IDF (Term Frequency-Inverse Document Frequency)}
+We first obtain a sparse matrix based on the frequencies of the occurance of a word for each text review, where rows for the text reviews and columns for words that occurs three or more times in all reviews. We have 65313 reviews in total for all "burger" restaurants, and 21848 words that occurs more than twice, resulting a sparse matrix of 65313*21848 dimension. In this case, however, if a word occurs more often than others in general, it is more likely to occur more frequently in a review, such as "burger" in our case, which is unfair to other words. Therefore, we use TF-IDF (Term Frequency-Inverse Document Frequency) to offset these effects. TF-IDF can be mathematically characterized by 
+\begin{equation}
+\begin{aligned}
+TF(\omega,t)&=\frac{\mathrm{\#\omega~in~t}}{\mathrm{\#words~in~t}}\\
+IDF(\omega,t)&=log(\frac{\mathrm{\#words~in~t}}{\mathrm{\#reviews~that~contains~\omega}})\\
+TFIDF(\omega,t) &= TF(\omega,t)*IDF(\omega,t)
+\end{aligned}
+\end{equation}
+where $\omega$ is a word and $t$ represents a review. 
+
+\subsection{Lasso}
+\label{subsec:lasso}
+After taking the TF-IDF of the original matrix, we have a scaled sparse 65313*21848 matrix. Although $n>p$ which can not be considered as high-dimensional regime, we still need to reduce the dimension of the variables (i.e., words). In a penalized regression problem such as the lasso, the goal is to identify a set of variables that will have nonzero weight in the model. In this case, we estimate the model parameters $\hat{\beta}$ and then define the selection set $\hat{S}$ as follows:
+\begin{equation}
+\begin{aligned}
+\hat{\beta}^\lambda &= argmin_{\beta \in \mathbb{R}^p} ||y-X\beta||_2^2+\lambda||\beta||_1\\
+\hat{S}^\lambda &= {k:\hat{\beta}_k^\lambda \neq 0}
+\end{aligned}
+\end{equation}
+where $X \in\mathbb{R} ^{n*p} $ is the design matrix, $y \in \mathbb{R}^n$ is a vector of outputs, and $\lambda$ is a regularization parameter that controls the size of the selection set.
+
+There are several existing methods for model selection, such as cross-validation, AIC/BIC scores, hypothesis testing, knockoffs, and stability methods. In our context, we use \textit{stability selection}\cite{meinshausen2010stability}, whose goal is to provide an algorithm for performing model selection in a structure learning problem while controlling the number of false discoveries. Based on Lasso, we use \Cref{algorithm} to seven times using seven equally spaced thresholds (i.e., 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9), take the intersect of the return variable set $\hat{S}^{stable}$, resulting in selecting 765 words out of 21848. 
+\begin{algorithm}
+	\caption{Stability Selection Algorithm}
+	\label{algorithm}
+	\begin{algorithmic}[1]
+		\REQUIRE data set $Z_1, \dots, Z_n$.
+		\STATE Define a candidate set of regularization parameters $\Lambda$ and a subsample number N.
+		\STATE For each value of $\lambda \in \Lambda$, do:\\
+		(a) Start with the full dataset $Z_{full} = Z_1, \dots, Z_n$\\
+		(b) For each i in $1, \dots,N$, do:\\
+		i. Subsample from $Z_{full}$ without replacement to generate a smaller dataset of
+		size $\lfloor n/2 \rfloor$, given by $Z_{i}$.\\
+		ii. Run the selection algorithm on dataset $Z_{i}$ with parameter $\lambda$ to obtain a
+		selection set $\hat{S}_{(i)}^\lambda$.\\
+		(c) Given the selection sets from each subsample, calculate the empirical selection
+		probability for each model component:
+		$\hat{\Pi}_k^\lambda=P(k \in \hat{S}^\lambda)=\frac{\sum_{i=1}^{N} I(k \in \hat{S}_{(i)}^\lambda)}{N}$
+		The selection probability for component k is its probability of being selected by
+		the algorithm.
+		\STATE Given the selection probabilities for each component and for each value of $\lambda$, construct
+		the stable set according to the following definition:\\
+		$\hat{S}^{stable} = {k:\max_{\lambda \in \Lambda \hat{\Pi}_k^\lambda \geq \pi_{thr}}}$\\
+		where $\pi_{thr}$ is a predefined threshold varied from 0.6 to 0.9.
+		\RETURN $\hat{S}^{stable}$
+	\end{algorithmic}
+\end{algorithm}
+
+
+
+\subsection{Model Fitting}
+\label{subsec:mod}
+After stability selection, we fit regression model with review scores to be response, and the aforementioned 765 words to be predictors. The results of top ten variables based on p value is summarized in \cref{tab:regress}. 
+
+
+\begin{table}[h!]
+	\centering
+	\caption{Regression Summary (Top 10 variables)}
+	\label{tab:regress}
+	\resizebox{1\textwidth}{!}{
+		\begin{tabular}{ccccccccccc}
+			\hline\hline
+words&occurence&pval&tscore\\
+great&29060&0&47.4054425559631\\
+best&10642&2.75845242066736e-243&33.4542380847868\\
+worst&2238&2.90066315434987e-215&-31.4349060901696\\
+amazing&6170&3.22304171253052e-190&29.5173425939315\\
+delicious&9390&9.48495435969436e-166&27.5191839459281\\
+terrible&1990&7.16046601520904e-143&-25.5136751342918\\
+awesome&4776&4.47266428430108e-130&24.3217684663504\\
+excellent&4329&8.93741984766674e-122&23.5170115699077\\
+horrible&1539&6.56706045138237e-119&-23.2327980044903\\
+good&39469&7.49159746934729e-105&21.7863536884955\\
+			\hline
+	\end{tabular}}
+	\label{tab:1}
+\end{table}
+
+%\begin{table}[hbt]
+%	\caption{Regression Summary (Top 10 variables)}
+%	\label{tab:regress}
+%	\centering 
+%	\sisetup{scientific-notation = true, round-mode=places,round-precision=2}
+%	\csvreader[
+%	column count=4,
+%	tabular={p{0.5in}p{1in}p{1in}p{1in}}, 
+%	table head=\toprule  \textbf{POTP (\%)} & \textbf{Accumulate Upper} & \textbf{Accumulate Nearest} & \textbf{Average \mbox{Upper}} \\\midrule,
+%	table foot=\bottomrule	
+%	]{"data/selected_words/summary_sort_top10.txt"}
+%	{}
+%	{\csvcoli & \num{\csvcolii} & \num{\csvcoliii} & \num{\csvcoliv}} 
+%\end{table}
+
+
+\section{Diagnostics}
+\label{sec:diag}
+%For the linear model, we have the following assumptions: (1) observations are independent; (2) homoscedasticity; (3)linearity of the model; (4) error terms are normally distributed. The qq plot \Cref{fig:2} indicates that the residuals which are the estimations of error terms are approximately normally distributed. The standardized residual plot in \Cref{fig:2} suggests that the model is linear and homoscedastic, and there is no obvious outliers in the model, demonstrating the effectiveness of data cleaning. Based on Pii measure and Cook's distance in \Cref{fig:2}, we notice there are several leverage values and influence values, indicating there are points contributing to the model more than other points. However, they are not outliers. In conclusion, the assumptions of the model are satisfied. 
+%\begin{figure}
+%	\centering
+%	\label{fig:2}
+%	\begin{subfigure}
+%		\centering
+%		\includegraphics[width=.2\linewidth]{../Image/qq_plot.png}
+%	\end{subfigure}%
+%~
+%	\begin{subfigure}
+%		\centering
+%		\includegraphics[width=.2\linewidth]{../Image/Final_Model_Residual_Plot.png}
+%	\end{subfigure}
+%	\begin{subfigure}
+%		%{.5\textwidth}
+%	\centering
+%	\includegraphics[width=.3\linewidth]{../Image/Pii_Cook's_Distance.png}
+%\end{subfigure}
+%	\caption{Diagnostics for Final Model}
+%\end{figure}
+
+\section{Insights \& Action Plan}
+\label{sec:ins}
+
+\section{Strengths and Weaknesses}
+\label{sec:str}
+%The strengths of our model lies in the interpretability, computation efficiency and predictability (i.e. statistical accuracy) as mentioned above. On the other hand, although the linearity assumption is approximately satisfied in \Cref{sec:diag}, these variables may not be linearly related to bodyfat in practice. 
+
+
+\pagebreak
+\section{Contributions}
+\label{sec:con}
+\noindent JH: Data Cleaning of R code, \Cref{sec:ins} of the Summary, \\
+YQ: Model Diagnostics of R code,  \Cref{sec:diag}\&\Cref{sec:ins} of the Summary, \\
+SZ: Model building of R code, \Cref{sec:1}\& \Cref{sec:2} of the Summary, \\
+
+
+
+\bibliographystyle{plain}
+\bibliography{reference.bib}
+
+
+
+
+\end{document}
