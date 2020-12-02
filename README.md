@@ -15,7 +15,7 @@ There are four folders providing more details in our main project: *slides*, *co
 
 - `\data` contains the raw data and precessed data for our analysis, stored in csv, txt, and .RData files.
 
-- `slides` contains the *.pdf* report of our study.
+- `\slides` contains the *.pptx* slides of our study.
 
 ## Authors
 * **Yiqun Xiao**(yxiao85@wisc.edu)
