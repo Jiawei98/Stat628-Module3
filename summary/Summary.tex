@@ -98,7 +98,7 @@
 	
 	\noindent\textbf{2.2 TF-IDF (Term Frequency-Inverse Document Frequency)}
 	
-	We first obtain a sparse matrix based on the frequencies of the occurrences of a word for each text review, where rows for the text reviews and columns for words that occur three or more times in all reviews. We have 65313 reviews in total for all "burger" restaurants, and 21848 words that occur more than twice, resulting a sparse matrix of 65313*21848 dimension. In this case, however, if a word occurs more often than others in general, it is more likely to occur more frequently in a review, such as "burger" in our case, which is unfair to other words. Therefore, we use TF-IDF (Term Frequency-Inverse Document Frequency) to offset these effects. TF-IDF can be mathematically characterized by
+	We first obtain a sparse matrix based on the frequencies of the occurrences of a word for each text review, where rows for the text reviews and columns for words that occur three or more times in all reviews. We have 65154 reviews in total for all "burger" restaurants, and 13149 words that occur more than twice, resulting a sparse matrix of 65154*13149 dimension. In this case, however, if a word occurs more often than others in general, it is more likely to occur more frequently in a review, such as "burger" in our case, which is unfair to other words. Therefore, we use TF-IDF (Term Frequency-Inverse Document Frequency) to offset these effects. TF-IDF can be mathematically characterized by
 	\begin{equation}
 	TFIDF(\omega,t) = TF(\omega,t)\times IDF(\omega,t) = \frac{\mathrm{\#\omega~in~t}}{\mathrm{\#words~in~t}}\times log(\frac{\mathrm{\#words~in~t}}{\mathrm{\#reviews~that~contains~\omega}})
 	\end{equation}
@@ -106,7 +106,7 @@
 	
 	\noindent\textbf{2.3 Lasso}
 	
-	After transforming reviews to document-term-matrix, we have a scaled sparse 65313*21848 matrix. Although $n>p$ which cannot be considered as high-dimensional regime, we still need to reduce the dimension of the variables (i.e., words). We adapt lasso to shrink non-significant coefficients to zero and then define the selection set $\hat{S}$ as follows:
+	After transforming reviews to document-term-matrix, we have a scaled sparse 65154*13149 matrix. Although $n>p$ which cannot be considered as high-dimensional regime, we still need to reduce the dimension of the variables (i.e., words). We adapt lasso to shrink non-significant coefficients to zero and then define the selection set $\hat{S}$ as follows:
 	\begin{equation}
 	\begin{aligned}
 	\hat{\beta}^\lambda &= argmin_{\beta \in \mathbb{R}^p} ||y-X\beta||_2^2+\lambda||\beta||_1\\
@@ -115,7 +115,7 @@
 	\end{equation}
 	where $X \in\mathbb{R} ^{n*p} $ is the design matrix, $y \in \mathbb{R}^n$ is a vector of outputs, and $\lambda$ is a regularization parameter that controls the size of the selection set.
 	
-	There are several existing methods for model selection, such as cross-validation, AIC/BIC scores, hypothesis testing, knockoffs, and stability methods. In our context, we use \textit{stability selection}\cite{meinshausen2010stability}, whose goal is to provide an improvement on existing basic methods (i.e. Lasso in our project) while controlling the number of false discoveries. The algorithm helps to reduce the sensitivity to the choice of regularization parameters by subsampling on the observations. Based on Lasso, we use the algorithm seven times using seven equally spaced thresholds (i.e., $\pi_{thr}\in \{0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9\}$), take the intersect of the return variable set $\hat{S}^{stable}$, resulting in selecting 765 words out of 21848. The results vary little when setting $\pi_{thr}\in (0.6, 0.9)$ and we take intersection for robustness.
+	There are several existing methods for model selection, such as cross-validation, AIC/BIC scores, hypothesis testing, knockoffs, and stability methods. In our context, we use \textit{stability selection}\cite{meinshausen2010stability}, whose goal is to provide an improvement on existing basic methods (i.e. Lasso in our project) while controlling the number of false discoveries. The algorithm helps to reduce the sensitivity to the choice of regularization parameters by subsampling on the observations. Based on Lasso, we use the algorithm seven times using seven equally spaced thresholds (i.e., $\pi_{thr}\in \{0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9\}$), take the intersect of the return variable set $\hat{S}^{stable}$, resulting in selecting 765 words out of 13149. The results vary little when setting $\pi_{thr}\in (0.6, 0.9)$ and we take intersection for robustness.
 	
 	\begin{comment}
 	\begin{algorithm}
@@ -220,8 +220,8 @@
 	\section*{Contributions}
 	
 	\noindent JH: Section 2.1, 2.4, 4 of the Summary. Slides 13-18. Code for data cleaning and shiny app. \\
-	YQ: Section 2.2, 2.3, 2.5 of the Summary. Slides 5-12. Code for main model building.\\
-	SZ: Section 1,3 of the Summary. Slides 1-4, 19-22. Code for rendering plots and tables.\\
+	YX: Section 2.2, 2.3, 2.5 of the Summary. Slides 5-12. Code for main model building.\\
+	SZ: Section 1,3 of the Summary. Slides 1-4, 19-22. Code for rendering plots and tables, edited code for model building.\\
 	
 	\bibliographystyle{plain}
 	\bibliography{reference.bib}
